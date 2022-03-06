@@ -1,0 +1,42 @@
+- name: horizon インストール
+  dnf:
+    name:
+      - openstack-dashboard
+
+- name: horizon設定ファイルバックアップ
+  copy:
+    src: /etc/openstack-dashboard/local_settings
+    dest: /etc/openstack-dashboard/local_settings.org
+    force: no
+    remote_src: yes
+
+- name: horizon 設定変更
+  template:
+    src: ../templates/local_settings
+    dest: /etc/openstack-dashboard/local_settings
+    owner: root
+    group: apache
+    mode: 0640
+
+- name: openstack-dashboard.conf設定ファイルバックアップ
+  copy:
+    src: /etc/httpd/conf.d/openstack-dashboard.conf
+    dest: /etc/httpd/conf.d/openstack-dashboard.conf.org
+    force: no
+    remote_src: yes
+
+- name: openstack-dashboard.conf 設定変更
+  template:
+    src: ../templates/openstack-dashboard.conf
+    dest: /etc/httpd/conf.d/openstack-dashboard.conf
+    owner: root
+    group: root
+    mode: 0644
+
+- name: httpd,memcached サービス再起動
+  systemd:
+    name: '{{ item }}'
+    state: restarted
+  with_items:
+    - httpd
+    - memcached

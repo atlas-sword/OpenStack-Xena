@@ -1,0 +1,101 @@
+- name: MariaDB 導入
+  dnf:
+    name:
+      - mariadb
+      - mariadb-server
+      - python3-PyMySQL
+
+- name: MariaDB 設定ファイル作成
+  template:
+    src: ../templates/openstack.cnf
+    dest: /etc/my.cnf.d/openstack.cnf
+    mode: 0644
+
+- name: MariaDB サービス起動・自動起動
+  systemd:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: MariaDB 初期セットアップ
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: "{{ mariadb_user_name }}"
+    password: "{{ mariadb_password }}"
+    check_implicit_admin: yes
+    state: present
+
+- name: 匿名ユーザ削除
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: ''
+    host_all: yes
+    state: absent
+
+- name: RabbitMQ 導入
+  dnf:
+    name: rabbitmq-server
+    state: latest
+
+- name: RabbitMQ サービス起動・自動起動
+  systemd:
+    name: rabbitmq-server
+    state: started
+    enabled: yes
+
+- name: RabbitMQ openstack ユーザー追加
+  shell: rabbitmqctl add_user "{{ rabbit_user_name }}" "{{ rabbit_user_password }}"
+
+- name: RabbitMQ パーミッション設定
+  shell: rabbitmqctl set_permissions "{{ rabbit_user_name }}" ".*" ".*" ".*" 
+
+- name: Memcached 導入
+  dnf:
+    name:
+      - memcached
+      - python3-memcached
+
+- name: Memcached設定ファイルバックアップ
+  copy:
+    src: /etc/sysconfig/memcached
+    dest: /etc/sysconfig/memcached.org
+    force: no
+    remote_src: yes
+
+- name: Memcached 設定変更
+  template:
+    src: ../templates/memcached
+    dest: /etc/sysconfig/memcached
+    mode: 0644
+
+- name: Memcached サービス起動・自動起動
+  systemd:
+    name: memcached
+    state: started
+    enabled: yes
+
+- name: etcd 導入
+  dnf:
+    name: etcd
+    state: latest
+
+- name: Memcached設定ファイルバックアップ
+  copy:
+    src: /etc/etcd/etcd.conf
+    dest: /etc/etcd/etcd.conf.org
+    force: no
+    remote_src: yes
+
+- name: etcd 設定変更
+  template:
+    src: ../templates/etcd.conf
+    dest: /etc/etcd/etcd.conf
+    mode: 0644
+
+- name: etcd サービス起動・自動起動
+  systemd:
+    name: etcd
+    state: started
+    enabled: yes

@@ -1,0 +1,210 @@
+- name: Neutron データベース作成
+  community.mysql.mysql_db:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: neutron
+    state: present
+
+- name: Neutron ユーザ作成
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: neutron
+    password: "{{ mariadb_neutron_password }}"
+    priv: 'neutron.*:ALL,GRANT'
+
+- name: Neutron ユーザ作成（localhost以外許可）
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: neutron
+    host: '%'
+    password: "{{ mariadb_neutron_password }}"
+    priv: 'neutron.*:ALL,GRANT'
+
+- name: Neutron ユーザを作成 (openstack)
+  shell: openstack user create --domain default --password "{{ neutron_admin_password }}" neutron
+
+- name: Neutron ユーザをadminロールに加える
+  shell: openstack role add --project service --user neutron admin
+
+- name: Neutron サービスエンティティーを作成
+  shell: openstack service create --name neutron --description "OpenStack Networking" network
+
+- name: Neutron の API エンドポイント作成 1
+  shell: openstack endpoint create --region RegionOne network public http://$"{{ controller_ip }}":9696
+
+- name: Neutron の API エンドポイント作成 2
+  shell: openstack endpoint create --region RegionOne network internal http://$"{{ controller_ip }}":9696
+
+- name: Neutron の API エンドポイント作成 3
+  shell: openstack endpoint create --region RegionOne network admin http://$"{{ controller_ip }}":9696
+
+- name: Neutron インストール
+  dnf:
+    name:
+      - openstack-neutron
+      - openstack-neutron-ml2
+      - openstack-neutron-openvswitch
+
+- name: Neutron(neutron.conf)設定ファイルバックアップ
+  copy:
+    src: /etc/neutron/neutron.conf
+    dest: /etc/neutron/neutron.conf.org
+    force: no
+    remote_src: yes
+
+- name: Neutron 設定変更(neutron.conf)
+  template:
+    src: ../templates/neutron.conf
+    dest: /etc/neutron/neutron.conf
+    owner: root
+    group: neutron
+    mode: 0640
+
+- name: Neutron(l3_agent.ini)設定ファイルバックアップ
+  copy:
+    src: /etc/neutron/l3_agent.ini
+    dest: /etc/neutron/l3_agent.ini.org
+    force: no
+    remote_src: yes
+
+- name: Neutron 設定変更(l3_agent.ini)
+  template:
+    src: ../templates/l3_agent.ini
+    dest: /etc/neutron/l3_agent.ini
+    owner: root
+    group: neutron
+    mode: 0640
+
+- name: Neutron(dhcp_agent.ini)設定ファイルバックアップ
+  copy:
+    src: /etc/neutron/dhcp_agent.ini
+    dest: /etc/neutron/dhcp_agent.ini.org
+    force: no
+    remote_src: yes
+
+- name: Neutron 設定変更(dhcp_agent.ini)
+  template:
+    src: ../templates/dhcp_agent.ini
+    dest: /etc/neutron/dhcp_agent.ini
+    owner: root
+    group: neutron
+    mode: 0640
+
+- name: Neutron(metadata_agent.ini)設定ファイルバックアップ
+  copy:
+    src: /etc/neutron/metadata_agent.ini
+    dest: /etc/neutron/metadata_agent.ini.org
+    force: no
+    remote_src: yes
+
+- name: Neutron 設定変更(metadata_agent.ini)
+  template:
+    src: ../templates/metadata_agent.ini
+    dest: /etc/neutron/metadata_agent.ini
+    owner: root
+    group: neutron
+    mode: 0640
+
+- name: Neutron(ml2_conf.ini)設定ファイルバックアップ
+  copy:
+    src: /etc/neutron/plugins/ml2/ml2_conf.ini
+    dest: /etc/neutron/plugins/ml2/ml2_conf.ini.org
+    force: no
+    remote_src: yes
+
+- name: Neutron 設定変更(ml2_conf.ini)
+  template:
+    src: ../templates/ml2_conf.ini
+    dest: /etc/neutron/plugins/ml2/ml2_conf.ini
+    owner: root
+    group: neutron
+    mode: 0640
+
+- name: Neutron(openvswitch_agent.ini)設定ファイルバックアップ
+  copy:
+    src: /etc/neutron/plugins/ml2/openvswitch_agent.ini
+    dest: /etc/neutron/plugins/ml2/openvswitch_agent.ini.org
+    force: no
+    remote_src: yes
+
+- name: Neutron 設定変更(openvswitch_agent.ini)
+  template:
+    src: ../templates/openvswitch_agent.ini
+    dest: /etc/neutron/plugins/ml2/openvswitch_agent.ini
+    owner: root
+    group: neutron
+    mode: 0640
+
+- name: openvswitch サービス起動・自動起動
+  systemd:
+    name: openvswitch
+    state: started
+    enabled: yes
+
+- name: ネットワーク(ifcfg-ens33)設定ファイルバックアップ
+  copy:
+    src: /etc/sysconfig/network-scripts/ifcfg-ens33
+    dest: /etc/sysconfig/network-scripts/ifcfg-ens33.org
+    force: no
+    remote_src: yes
+
+- name: ネットワーク設定変更(ifcfg-ens33)
+  template:
+    src: ../templates/ifcfg-ens33
+    dest: /etc/sysconfig/network-scripts/ifcfg-ens33
+    owner: root
+    group: root
+    mode: 0644
+
+- name: ネットワーク設定変更(ifcfg-br-ens33)
+  template:
+    src: ../templates/ifcfg-br-ens33
+    dest: /etc/sysconfig/network-scripts/ifcfg-br-ens33
+    owner: root
+    group: root
+    mode: 0644
+
+- name: NetworkManager サービス停止・自動起動無効
+  systemd:
+    name: NetworkManager
+    state: stopped
+    enabled: no
+
+- name: network サービス再起動
+  systemd:
+    name: network
+    state: restarted
+    enabled: yes
+
+- name: ブリッジの作成
+  shell: ovs-vsctl add-br br-ens34
+
+- name: ポートの登録
+  shell: ovs-vsctl add-port br-ens34 ens34
+  
+- name: link作成
+  shell: ln -s /etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini
+
+- name: Neutronサービスデータベースを展開
+  shell: su -s /bin/sh -c "neutron-db-manage --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugins/ml2/ml2_conf.ini upgrade head" neutron
+
+- name: Nova,openvswitch サービス再起動
+  systemd:
+    name: '{{ item }}'
+    state: restarted
+  with_items:
+    - openvswitch
+
+- name: Neutron サービス起動・自動起動
+  systemd:
+    name: '{{ item }}'
+    state: started
+    enabled: yes
+  with_items:
+    - neutron-server
+    - neutron-openvswitch-agent
+    - neutron-dhcp-agent
+    - neutron-metadata-agent
+    - neutron-l3-agent

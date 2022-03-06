@@ -1,0 +1,70 @@
+- name: glance データベース作成
+  community.mysql.mysql_db:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: glance
+    state: present
+
+- name: glance ユーザ作成
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: glance
+    password: "{{ mariadb_glance_password }}"
+    priv: 'glance.*:ALL,GRANT'
+
+- name: glance ユーザ作成（localhost以外許可）
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: glance
+    host: '%'
+    password: "{{ mariadb_glance_password }}"
+    priv: 'glance.*:ALL,GRANT'
+
+- name: glance ユーザを作成 (openstack)
+  shell: openstack user create --domain default --password "{{ glance_admin_password }}" glance
+
+- name: glance ユーザをadminロールに加える
+  shell: openstack role add --project service --user glance admin
+
+- name: glance サービスエンティティーを作成
+  shell: openstack service create --name glance --description "OpenStack Image" image
+
+- name: glance の API エンドポイント作成 1
+  shell: openstack endpoint create --region RegionOne image public http://$"{{ controller_ip }}":9292
+
+- name: glance の API エンドポイント作成 2
+  shell: openstack endpoint create --region RegionOne image internal http://$"{{ controller_ip }}":9292
+
+- name: glance の API エンドポイント作成 3
+  shell: openstack endpoint create --region RegionOne image admin http://$"{{ controller_ip }}":9292
+
+- name: glance インストール
+  dnf:
+    name:
+      - openstack-glance
+
+- name: glance設定ファイルバックアップ
+  copy:
+    src: /etc/glance/glance-api.conf
+    dest: /etc/glance/glance-api.conf.org
+    force: no
+    remote_src: yes
+
+- name: glance 設定変更
+  template:
+    src: ../templates/glance-api.conf
+    dest: /etc/glance/glance-api.conf
+    owner: root
+    group: glance
+    mode: 0640
+
+- name: Imageサービスデータベースを展開
+  shell: su -s /bin/sh -c "glance-manage db_sync" glance
+
+- name: glance サービス起動・自動起動
+  systemd:
+    name: openstack-glance-api
+    state: started
+    enabled: yes

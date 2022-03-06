@@ -1,0 +1,14 @@
+- name: example ドメイン作成
+  shell: openstack domain create --description "An Example Domain" example
+
+- name: プロジェクト作成
+  shell: openstack project create --domain default --description "Service Project" service
+
+- name: ユーザ作成
+  shell: openstack user create --domain default --password myuserpassword myuser
+
+- name: ユーザロール作成
+  shell: openstack role create myrole
+
+- name: ロール付与
+  shell: openstack role add --project service --user myuser myrole

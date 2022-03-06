@@ -1,0 +1,2 @@
+- include_tasks: glance-install.yml
+- include_tasks: glance-verify.yml

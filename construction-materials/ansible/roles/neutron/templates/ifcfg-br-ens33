@@ -1,0 +1,10 @@
+DEVICE=br-ens33
+DEVICETYPE=ovs
+TYPE=OVSBridge
+BOOTPROTO=static
+ONBOOT=yes
+IPADDR={{ controller_ip }}
+PREFIX=24
+GATEWAY={{ gateway_ip }}
+DNS1={{ dns_ip }}
+NM_CONTROLLED=no

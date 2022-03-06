@@ -1,0 +1,87 @@
+- name: keystone データベース作成
+  community.mysql.mysql_db:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: keystone
+    state: present
+
+- name: keystone ユーザ権限付与
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: keystone
+    password: "{{ mariadb_keystone_password }}"
+    priv: 'keystone.*:ALL,GRANT'
+
+- name: keystone ユーザ作成（localhost以外許可）
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: keystone
+    host: '%'
+    password: "{{ mariadb_keystone_password }}"
+    priv: 'keystone.*:ALL,GRANT'
+
+- name: keystone インストール
+  dnf:
+    name:
+      - openstack-keystone
+      - python3-mod_wsgi
+      - httpd
+
+- name: Keystone設定ファイルバックアップ
+  copy:
+    src: /etc/keystone/keystone.conf
+    dest: /etc/keystone/keystone.conf.org
+    force: no
+    remote_src: yes
+
+- name: Keystone 設定変更
+  template:
+    src: ../templates/keystone.conf
+    dest: /etc/keystone/keystone.conf
+    owner: root
+    group: keystone
+    mode: 0640
+
+- name: keystoneデータベース書き込み
+  shell: su -s /bin/sh -c "keystone-manage db_sync" keystone
+
+- name: キー初期化
+  shell: keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone
+
+- name: キー初期化2
+  shell: keystone-manage credential_setup --keystone-user keystone --keystone-group keystone
+
+- name: keystone ブートストラップ
+  shell: keystone-manage bootstrap --bootstrap-password "{{ keystone_admin_password }}" --bootstrap-admin-url http://$"{{ controller_ip }}":5000/v3/ --bootstrap-internal-url http://$"{{ controller_ip }}":5000/v3/ --bootstrap-public-url http://$"{{ controller_ip }}":5000/v3/ --bootstrap-region-id RegionOne
+
+- name: httpd設定ファイルバックアップ
+  copy:
+    src: /etc/httpd/conf/httpd.conf
+    dest: /etc/httpd/conf/httpd.conf.org
+    force: no
+    remote_src: yes
+
+- name: httpd 設定変更
+  template:
+    src: ../templates/httpd.conf
+    dest: /etc/httpd/conf/httpd.conf
+    owner: root
+    group: root
+    mode: 0644
+
+- name: link作成
+  shell: ln -s /usr/share/keystone/wsgi-keystone.conf /etc/httpd/conf.d/
+
+- name: httpd サービス起動・自動起動
+  systemd:
+    name: httpd
+    state: started
+    enabled: yes
+
+- name: 環境変数の設定ファイル配布
+  template:
+    src: ../templates/admin-openrc
+    dest: /root/admin-openrc
+    mode: 0600

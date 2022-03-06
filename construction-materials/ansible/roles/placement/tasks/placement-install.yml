@@ -1,0 +1,84 @@
+- name: Placement データベース作成
+  community.mysql.mysql_db:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: placement
+    state: present
+
+- name: Placement ユーザ作成
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: placement
+    password: "{{ mariadb_placement_password }}"
+    priv: 'placement.*:ALL,GRANT'
+
+- name: Placement ユーザ作成（localhost以外許可）
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: placement
+    host: '%'
+    password: "{{ mariadb_placement_password }}"
+    priv: 'placement.*:ALL,GRANT'
+
+- name: Placement ユーザを作成 (openstack)
+  shell: openstack user create --domain default --password "{{ placement_admin_password }}" placement
+
+- name: Placement ユーザをadminロールに加える
+  shell: openstack role add --project service --user placement admin
+
+- name: Placement サービスエンティティーを作成
+  shell: openstack service create --name placement --description "OpenStack Compute Placement service" placement
+
+- name: Placement の API エンドポイント作成 1
+  shell: openstack endpoint create --region RegionOne placement public http://$"{{ controller_ip }}":8778
+
+- name: Placement の API エンドポイント作成 2
+  shell: openstack endpoint create --region RegionOne placement internal http://$"{{ controller_ip }}":8778
+
+- name: Placement の API エンドポイント作成 3
+  shell: openstack endpoint create --region RegionOne placement admin http://$"{{ controller_ip }}":8778
+
+- name: Placement インストール
+  dnf:
+    name:
+      - openstack-placement-api
+
+- name: Placement(placement.conf)設定ファイルバックアップ
+  copy:
+    src: /etc/placement/placement.conf
+    dest: /etc/placement/placement.conf.org
+    force: no
+    remote_src: yes
+
+- name: Placement 設定変更(placement.conf)
+  template:
+    src: ../templates/placement.conf
+    dest: /etc/placement/placement.conf
+    owner: root
+    group: placement
+    mode: 0640
+
+- name: Placement(00-placement-api.conf)設定ファイルバックアップ
+  copy:
+    src: /etc/httpd/conf.d/00-placement-api.conf
+    dest: /etc/httpd/conf.d/00-placement-api.conf.org
+    force: no
+    remote_src: yes
+
+- name: Placement 設定変更(00-placement-api.conf)
+  template:
+    src: ../templates/00-placement-api.conf
+    dest: /etc/httpd/conf.d/00-placement-api.conf
+    owner: root
+    group: root
+    mode: 0640
+
+- name: Placement サービスデータベースを展開
+  shell: su -s /bin/sh -c "placement-manage db sync" placement
+
+- name: HTTPサービスの再起動
+  systemd:
+    name: httpd
+    state: restarted

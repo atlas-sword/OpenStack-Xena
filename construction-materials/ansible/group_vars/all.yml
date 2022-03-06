@@ -1,0 +1,20 @@
+mariadb_user_name: root
+mariadb_password: mariacontroller
+
+rabbit_user_name: openstack
+rabbit_user_password: rabbitcontroller
+
+keystone_user_name: admin 
+keystone_admin_password: adminpassword
+glance_admin_password: glancepassword
+nova_admin_password: novapassword
+placement_admin_password: placementpassword
+neutron_admin_password: neutronpassword
+cinder_admin_password: cinderpassword
+
+mariadb_keystone_password: KeystoneDBpass
+mariadb_glance_password: GlanceDBpass
+mariadb_nova_password: NovaDBpass
+mariadb_placement_password: PlacementDBpass
+mariadb_neutron_password: NeutronDBpass
+mariadb_cinder_password: CinderDBpass

@@ -1,0 +1,24 @@
+- name: chronyインストール
+  dnf:
+    name: chrony
+    state: latest
+
+- name: chrony設定ファイルバックアップ
+  copy:
+    src: /etc/chrony.conf
+    dest: /etc/chrony.conf.org
+    force: no
+    remote_src: yes
+  
+- name: chrony設定ファイル編集
+  template:
+    src: ../templates/chrony.conf
+    dest: /etc/chrony.conf
+    mode: 0644
+
+- name: chronyサービス再起動・自動起動
+  systemd:
+    name: chronyd
+    state: restarted
+    daemon_reload: yes
+    enabled: yes

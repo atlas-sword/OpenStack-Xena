@@ -1,0 +1,108 @@
+- name: Nova データベース作成
+  community.mysql.mysql_db:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: nova
+    state: present
+
+- name: Nova_api データベース作成
+  community.mysql.mysql_db:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: nova_api
+    state: present
+
+- name: Nova_cell0 データベース作成
+  community.mysql.mysql_db:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: nova_cell0
+    state: present
+
+- name: Nova ユーザ権限付与
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: nova
+    password: "{{ mariadb_nova_password }}"
+    priv: nova.*:ALL,GRANT/nova_api.*:ALL,GRANT/nova_cell0.*:ALL,GRANT
+
+- name: Nova ユーザ権限付与（localhost以外許可）
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: nova
+    host: '%'
+    password: "{{ mariadb_nova_password }}"
+    priv: nova.*:ALL,GRANT/nova_api.*:ALL,GRANT/nova_cell0.*:ALL,GRANT
+
+- name: Nova ユーザを作成 (openstack)
+  shell: openstack user create --domain default --password "{{ nova_admin_password }}" nova
+
+- name: Nova ユーザをadminロールに加える
+  shell: openstack role add --project service --user nova admin
+
+- name: Nova サービスエンティティーを作成
+  shell: openstack service create --name nova --description "OpenStack Compute" compute
+
+- name: Nova の API エンドポイント作成 1
+  shell: openstack endpoint create --region RegionOne compute public http://$"{{ controller_ip }}":8774/v2.1
+
+- name: Nova の API エンドポイント作成 2
+  shell: openstack endpoint create --region RegionOne compute internal http://$"{{ controller_ip }}":8774/v2.1
+
+- name: Nova の API エンドポイント作成 3
+  shell: openstack endpoint create --region RegionOne compute admin http://$"{{ controller_ip }}":8774/v2.1
+
+- name: Nova インストール
+  dnf:
+    name:
+      - openstack-nova-api
+      - openstack-nova-conductor
+      - openstack-nova-novncproxy 
+      - openstack-nova-scheduler
+      - openstack-nova-compute
+      - openstack-nova
+
+- name: Nova設定ファイルバックアップ
+  copy:
+    src: /etc/nova/nova.conf
+    dest: /etc/nova/nova.conf.org
+    force: no
+    remote_src: yes
+
+- name: Nova 設定変更(nova.conf)
+  template:
+    src: ../templates/nova.conf
+    dest: /etc/nova/nova.conf
+    owner: root
+    group: nova
+    mode: 0640
+
+- name: nova-apiサービスデータベースを展開
+  shell: su -s /bin/sh -c "nova-manage api_db sync" nova
+
+- name: Compute のデータベースを展開 1
+  shell: su -s /bin/sh -c "nova-manage cell_v2 map_cell0" nova
+
+- name: Compute のデータベースを展開 2
+  shell: su -s /bin/sh -c "nova-manage cell_v2 create_cell --name=cell1 --verbose" nova
+
+- name: Compute のデータベースを展開 3
+  shell: su -s /bin/sh -c "nova-manage db sync" nova
+
+- name: Compute のデータベースを展開 4
+  shell: su -s /bin/sh -c "nova-manage cell_v2 list_cells" nova
+
+- name: Nova サービス起動・自動起動
+  systemd:
+    name: '{{ item }}'
+    state: started
+    enabled: yes
+  with_items:
+    - openstack-nova-api
+    - openstack-nova-scheduler
+    - openstack-nova-conductor
+    - openstack-nova-novncproxy
+    - openstack-nova-compute
+    - libvirtd

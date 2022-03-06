@@ -1,0 +1,80 @@
+- name: Cinder データベース作成
+  community.mysql.mysql_db:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: cinder
+    state: present
+
+- name: Cinder ユーザ作成
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: cinder
+    password: "{{ mariadb_cinder_password }}"
+    priv: 'cinder.*:ALL,GRANT'
+
+- name: Cinder ユーザ作成（localhost以外許可）
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_user_name }}"
+    login_password: "{{ mariadb_password }}"
+    name: cinder
+    host: '%'
+    password: "{{ mariadb_cinder_password }}"
+    priv: 'cinder.*:ALL,GRANT'
+
+- name: Cinder ユーザを作成 (openstack)
+  shell: openstack user create --domain default --password "{{ cinder_admin_password }}" cinder
+
+- name: Cinder ユーザをadminロールに加える
+  shell: openstack role add --project service --user cinder admin
+
+- name: Cinder サービスエンティティーを作成
+  shell: openstack service create --name cinderv3 --description "OpenStack Block Storage" volumev3
+
+- name: Cinder の API エンドポイント作成 1
+  shell: openstack endpoint create --region RegionOne volumev3 public http://${{ controller_ip }}:8776/v3/%\(project_id\)s
+
+- name: Cinder の API エンドポイント作成 2
+  shell: openstack endpoint create --region RegionOne volumev3 internal http://${{ controller_ip }}:8776/v3/%\(project_id\)s
+
+- name: Cinder の API エンドポイント作成 3
+  shell: openstack endpoint create --region RegionOne volumev3 admin http://${{ controller_ip }}:8776/v3/%\(project_id\)s
+
+- name: Cinder インストール
+  dnf:
+    name:
+      - openstack-cinder
+
+- name: Cinder(cinder.conf)設定ファイルバックアップ
+  copy:
+    src: /etc/cinder/cinder.conf
+    dest: /etc/cinder/cinder.conf.org
+    force: no
+    remote_src: yes
+
+- name: Cinder設定変更(cinder.conf)
+  template:
+    src: ../templates/cinder.conf
+    dest: /etc/cinder/cinder.conf
+    owner: root
+    group: cinder
+    mode: 0640
+
+- name: Cinderサービスデータベースを展開
+  shell: su -s /bin/sh -c "cinder-manage db sync" cinder
+
+- name: Novaサービス再起動
+  systemd:
+    name: '{{ item }}'
+    state: restarted
+  with_items:
+    - openstack-nova-api
+
+- name: Cinder サービス起動・自動起動
+  systemd:
+    name: '{{ item }}'
+    state: started
+    enabled: yes
+  with_items:
+    - openstack-cinder-api
+    - openstack-cinder-scheduler

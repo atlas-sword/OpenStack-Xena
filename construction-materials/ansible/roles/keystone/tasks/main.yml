@@ -1,0 +1,2 @@
+- include_tasks: keystone-install.yml
+- include_tasks: create-project.yml

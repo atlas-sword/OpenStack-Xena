@@ -1,0 +1,19 @@
+- hosts: openstack-deployment-onenode
+  roles:
+    - initial_setup
+    - middle_software
+    - keystone
+    - glance
+    - placement
+    - nova
+    - neutron
+    - horizon
+  environment:
+    OS_PROJECT_DOMAIN_NAME: "default"
+    OS_USER_DOMAIN_NAME: "default"
+    OS_PROJECT_NAME: "admin"
+    OS_USERNAME: "{{ keystone_user_name }}"
+    OS_PASSWORD: "{{ keystone_admin_password }}"
+    OS_AUTH_URL: "http://{{ controller_ip }}:5000/v3"
+    OS_IDENTITY_API_VERSION: "3"
+    OS_IMAGE_API_VERSION: "2"

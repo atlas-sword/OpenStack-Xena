@@ -1,0 +1,16 @@
+- name: dnfアップデート
+  dnf:
+    name: '*'
+    state: latest
+
+- name: 'firewalldサービスの無効化・停止'
+  service:
+    name: '{{ item }}'
+    enabled: no
+    state: stopped
+  with_items:
+    - firewalld
+
+- name: 'SELinuxのDisable設定'
+  selinux:
+    state=disabled
