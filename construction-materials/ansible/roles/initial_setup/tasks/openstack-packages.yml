@@ -1,7 +1,8 @@
-- name: リポジトリ 導入
-  dnf:
-    disable_gpg_check: yes
-    name: https://www.rdoproject.org/repos/rdo-release.el8.rpm
+# XENAを導入するため最新のレポジトリはインストールしない
+#- name: リポジトリ 導入
+#  dnf:
+#    disable_gpg_check: yes
+#    name: https://www.rdoproject.org/repos/rdo-release.el8.rpm
 
 - name: PowerTools
   shell: dnf config-manager --set-enabled powertools
