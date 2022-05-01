@@ -32,13 +32,13 @@
   shell: openstack service create --name cinderv3 --description "OpenStack Block Storage" volumev3
 
 - name: Cinder の API エンドポイント作成 1
-  shell: openstack endpoint create --region RegionOne volumev3 public http://${{ controller_ip }}:8776/v3/%\(project_id\)s
+  shell: openstack endpoint create --region RegionOne volumev3 public http://$"{{ controller_ip }}":8776/v3/%\(project_id\)s
 
 - name: Cinder の API エンドポイント作成 2
-  shell: openstack endpoint create --region RegionOne volumev3 internal http://${{ controller_ip }}:8776/v3/%\(project_id\)s
+  shell: openstack endpoint create --region RegionOne volumev3 internal http://$"{{ controller_ip }}":8776/v3/%\(project_id\)s
 
 - name: Cinder の API エンドポイント作成 3
-  shell: openstack endpoint create --region RegionOne volumev3 admin http://${{ controller_ip }}:8776/v3/%\(project_id\)s
+  shell: openstack endpoint create --region RegionOne volumev3 admin http://$"{{ controller_ip }}":8776/v3/%\(project_id\)s
 
 - name: Cinder インストール
   dnf:
